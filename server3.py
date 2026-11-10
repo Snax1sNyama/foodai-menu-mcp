@@ -1,6 +1,6 @@
 import re
 from fastmcp import FastMCP
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union  # 👈 Добавили Union
 
 mcp = FastMCP("FoodAI-Menu")
 
@@ -336,7 +336,7 @@ def _normalize_name(name: str) -> str:
 
 
 @mcp.tool()
-def get_menu(restaurant_name: str) -> Any:
+def get_menu(restaurant_name: str) -> Union[List[Dict[str, Any]], Dict[str, str]]:
     """
     Возвращает меню ресторана. Если ресторана нет, возвращает not_found для LLM.
     """
@@ -347,7 +347,6 @@ def get_menu(restaurant_name: str) -> Any:
         if normalized_key in normalized_query or normalized_query in normalized_key:
             return menu
 
-    # Если ресторана нет в базе, возвращаем сигнал для LLM
     return {
         "status": "not_found",
         "restaurant_name": restaurant_name,
