@@ -69,12 +69,12 @@ def save_generated_menu(restaurant_name: str, dishes: List[Dict[str, Any]]) -> s
             INSERT INTO dishes (restaurant_id, name, section, price, calories, satiety, description)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (
-            rest_id, 
-            d.get('name') or d.get('dish'), 
-            d.get('section', 'сгенерировано'), 
-            d.get('price'), 
-            d.get('calories'), 
-            d.get('satiety', 50), 
+            rest_id,
+            d.get('name') or d.get('dish'),
+            d.get('section', 'сгенерировано'),
+            d.get('price'),
+            d.get('calories'),
+            d.get('satiety', 50),
             d.get('description', '')
         ))
 
