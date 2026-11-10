@@ -1,7 +1,7 @@
-# server.py
 import sqlite3
 import re
 import os
+import json
 from fastmcp import FastMCP
 from typing import List, Dict, Any, Union
 
@@ -10,8 +10,11 @@ DB_PATH = 'foodai_menu.db'
 
 # Если базы нет (например, на сервере), создаем её
 if not os.path.exists(DB_PATH):
-    from init_db import init_db
-    init_db()
+    try:
+        from init_db import init_db
+        init_db()
+    except ImportError:
+        pass
 
 def _normalize_name(name: str) -> str:
     name = name.lower().strip()
@@ -27,7 +30,6 @@ def get_menu(restaurant_name: str) -> Union[List[Dict[str, Any]], Dict[str, str]
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Ищем ресторан (частичное совпадение)
     cursor.execute("SELECT id, name FROM restaurants WHERE name LIKE ?", (f"%{restaurant_name.lower()}%",))
     rest = cursor.fetchone()
 
@@ -39,7 +41,6 @@ def get_menu(restaurant_name: str) -> Union[List[Dict[str, Any]], Dict[str, str]
             "message": "Меню нет в базе. Сгенерируй примерное меню, цены, калории и сытность (0-100)."
         }
 
-    # Достаем блюда
     cursor.execute("SELECT name, section, price, calories, satiety, description FROM dishes WHERE restaurant_id = ?", (rest["id"],))
     dishes = [dict(row) for row in cursor.fetchall()]
     conn.close()
@@ -48,12 +49,14 @@ def get_menu(restaurant_name: str) -> Union[List[Dict[str, Any]], Dict[str, str]
 
 
 @mcp.tool()
-def save_generated_menu(restaurant_name: str, dishes: List[Dict[str, Any]]) -> str:
-    """Сохраняет сгенерированное LLM меню в базу данных."""
+def save_generated_menu(restaurant_name: str, dishes: str) -> str:
+    """
+    Сохраняет сгенерированное LLM меню в базу данных.
+    Принимает dishes как JSON-строку.
+    """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # Ищем ресторан, если нет — создаем
     cursor.execute("SELECT id FROM restaurants WHERE name LIKE ?", (f"%{restaurant_name.lower()}%",))
     rest = cursor.fetchone()
 
@@ -63,18 +66,24 @@ def save_generated_menu(restaurant_name: str, dishes: List[Dict[str, Any]]) -> s
         cursor.execute("INSERT INTO restaurants (name) VALUES (?)", (restaurant_name,))
         rest_id = cursor.lastrowid
 
-    # Вставляем блюда
-    for d in dishes:
+    try:
+        dishes_list = json.loads(dishes)
+    except Exception:
+        dishes_list = []
+
+    for d in dishes_list:
+        if not isinstance(d, dict):
+            continue
         cursor.execute('''
             INSERT INTO dishes (restaurant_id, name, section, price, calories, satiety, description)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (
-            rest_id,
-            d.get('name') or d.get('dish'),
-            d.get('section', 'сгенерировано'),
-            d.get('price'),
-            d.get('calories'),
-            d.get('satiety', 50),
+            rest_id, 
+            d.get('name') or d.get('dish'), 
+            d.get('section', 'сгенерировано'), 
+            d.get('price'), 
+            d.get('calories'), 
+            d.get('satiety', 50), 
             d.get('description', '')
         ))
 
